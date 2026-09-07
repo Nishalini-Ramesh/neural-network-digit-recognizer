@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.datasets import fetch_openml
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 print("Loading MNIST dataset...")
@@ -127,7 +128,27 @@ def get_predictions(A2):
 def get_accuracy(predictions, y):
 
     return np.mean(predictions == y)
+
+def calculate_loss(A2, y):
+
+    one_hot_y = one_hot(y)
+
+    epsilon = 1e-12
+
+    loss = -np.mean(
+        np.sum(
+            one_hot_y * np.log(A2 + epsilon),
+            axis=1
+        )
+    )
+
+    return loss
+
 def train(X, y, epochs, learning_rate):
+
+    epoch_history = []
+    accuracy_history = []
+    loss_history = []
 
     for epoch in range(epochs):
 
@@ -158,16 +179,25 @@ def train(X, y, epochs, learning_rate):
                 y
             )
 
+            loss = calculate_loss(A2, y)
+
+            epoch_history.append(epoch)
+            accuracy_history.append(accuracy)
+            loss_history.append(loss)
+
             print(
                     "Epoch:",
                     epoch,
                     "Accuracy:",
-                    round(accuracy * 100, 2),"%"
-)
+                    round(accuracy * 100, 2),"%",
+                    "Loss:", round(loss, 4))
+
+    return epoch_history, accuracy_history, loss_history
+
 
 print("Training started...")
 
-train(
+epochs_recorded, accuracy_recorded, loss_recorded = train(
     X_train,
     y_train,
     epochs=150,
@@ -175,6 +205,40 @@ train(
 )
 
 print("Training completed.")
+
+plt.figure()
+
+plt.plot(
+    epochs_recorded,
+    np.array(accuracy_recorded) * 100
+)
+
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy (%)")
+plt.title("Training Accuracy vs Epoch")
+
+plt.grid()
+
+plt.savefig("training_accuracy.png")
+
+plt.show()
+
+plt.figure()
+
+plt.plot(
+    epochs_recorded,
+    loss_recorded
+)
+
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("Training Loss vs Epoch")
+
+plt.grid()
+
+plt.savefig("training_loss.png")
+
+plt.show()
 
 
 _, _, _, test_output = forward(X_test)
@@ -191,6 +255,24 @@ print(
     round(test_accuracy * 100, 2),
     "%"
 )
+
+cm = confusion_matrix(
+    y_test,
+    test_predictions
+)
+
+display = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=np.arange(10)
+)
+
+display.plot()
+
+plt.title("MNIST Confusion Matrix")
+
+plt.savefig("confusion_matrix.png")
+
+plt.show()
 
 np.savez(
     "mnist_model.npz",
