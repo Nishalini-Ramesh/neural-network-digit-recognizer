@@ -1,45 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
-
+from model import NeuralNetwork
 from PIL import Image
-model = np.load("mnist_model.npz")
 
-W1 = model["W1"]
-b1 = model["b1"]
 
-W2 = model["W2"]
-b2 = model["b2"]
 
 print("Trained model loaded successfully.")
-def relu(x):
 
-    return np.maximum(0, x)
-def softmax(x):
-
-    x = x - np.max(
-        x,
-        axis=1,
-        keepdims=True
-    )
-
-    exp_x = np.exp(x)
-
-    return exp_x / np.sum(
-        exp_x,
-        axis=1,
-        keepdims=True
-    )
-def forward(X):
-
-    Z1 = np.dot(X, W1) + b1
-
-    A1 = relu(Z1)
-
-    Z2 = np.dot(A1, W2) + b2
-
-    A2 = softmax(Z2)
-
-    return A2
 def prepare_image(image_path):
 
     image = Image.open(image_path)
@@ -161,6 +127,8 @@ def prepare_image(image_path):
 
     return final_array
 
+model = NeuralNetwork()
+
 correct = 0
 total = 10
 
@@ -184,17 +152,8 @@ for actual_digit in range(10):
 
         continue
 
-    output = forward(
-        input_image
-    )
-
-    predicted_digit = np.argmax(
-        output
-    )
-
-    confidence = np.max(
-        output
-    ) * 100
+    predicted_digit, confidence, output = model.predict(
+    input_image)
 
     if predicted_digit == actual_digit:
 

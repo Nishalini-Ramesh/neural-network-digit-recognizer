@@ -1,4 +1,5 @@
 import numpy as np
+np.random.seed(42)
 import matplotlib.pyplot as plt
 
 from sklearn.datasets import fetch_openml
