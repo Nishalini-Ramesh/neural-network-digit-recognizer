@@ -42,30 +42,28 @@ def forward(X):
     return A2
 def prepare_image(image_path):
 
-    # Open image
     image = Image.open(image_path)
 
-    # Convert to grayscale
     image = image.convert("L")
 
-    # Convert to numpy array
     image_array = np.array(image)
 
-    # Invert image:
+    # Invert:
     # white background -> black
     # black digit -> white
     image_array = 255 - image_array
 
-    # Find pixels belonging to the digit
-    rows = np.any(image_array > 30, axis=1)
-    cols = np.any(image_array > 30, axis=0)
+    # Remove weak background noise
+    image_array[image_array < 30] = 0
 
-    # Find boundaries of digit
+    # Find the digit area
+    rows = np.any(image_array > 0, axis=1)
+    cols = np.any(image_array > 0, axis=0)
+
     row_indices = np.where(rows)[0]
     col_indices = np.where(cols)[0]
 
     if len(row_indices) == 0 or len(col_indices) == 0:
-        print("No digit detected in image.")
         return None
 
     top = row_indices[0]
@@ -74,76 +72,156 @@ def prepare_image(image_path):
     left = col_indices[0]
     right = col_indices[-1]
 
-    # Crop only the digit
+    # Crop digit
     digit = image_array[
         top:bottom + 1,
         left:right + 1
     ]
 
-    # Convert back to PIL image
     digit = Image.fromarray(
         digit.astype(np.uint8)
     )
 
-    # Resize digit to fit inside 20 x 20
+    # Keep the aspect ratio
     digit.thumbnail((20, 20))
 
-    # Create empty 28 x 28 black image
-    final_image = Image.new(
-        "L",
+    # Create MNIST-sized black canvas
+    canvas = np.zeros(
         (28, 28),
-        0
+        dtype=np.uint8
     )
 
-    # Calculate position to center digit
+    # Initial centering
     x = (28 - digit.width) // 2
     y = (28 - digit.height) // 2
 
-    # Place digit in center
-    final_image.paste(
-        digit,
-        (x, y)
-    )
+    digit_array = np.array(digit)
 
-    # Convert to numpy
-    final_array = np.array(final_image)
+    canvas[
+        y:y + digit.height,
+        x:x + digit.width
+    ] = digit_array
+
+    # -------------------------
+    # CENTER OF MASS
+    # -------------------------
+
+    total = np.sum(canvas)
+
+    if total > 0:
+
+        rows_sum = np.sum(
+            canvas,
+            axis=1
+        )
+
+        cols_sum = np.sum(
+            canvas,
+            axis=0
+        )
+
+        center_y = np.sum(
+            np.arange(28) * rows_sum
+        ) / total
+
+        center_x = np.sum(
+            np.arange(28) * cols_sum
+        ) / total
+
+        shift_y = int(
+            round(13.5 - center_y)
+        )
+
+        shift_x = int(
+            round(13.5 - center_x)
+        )
+
+        canvas = np.roll(
+            canvas,
+            shift_y,
+            axis=0
+        )
+
+        canvas = np.roll(
+            canvas,
+            shift_x,
+            axis=1
+        )
 
     # Normalize
-    final_array = final_array / 255.0
-
-    # Flatten into 784 values
-    final_array = final_array.reshape(1, 784)
-
-    return final_array
-image_path = "my_digits/digit5.png"
-input_image = prepare_image(image_path)
-
-print("Input image shape:", input_image.shape)
-output = forward(input_image)
-
-predicted_digit = np.argmax(output)
-print("Predicted Digit:", predicted_digit)
-
-print("\nPrediction probabilities:")
-
-for digit in range(10):
-
-    print(
-        digit,
-        ":",
-        round(output[0][digit] * 100, 2),
-        "%"
+    final_array = (
+        canvas.astype(float)
+        / 255.0
     )
 
-display_image = input_image.reshape(28, 28)
+    final_array = final_array.reshape(
+        1,
+        784
+    )
 
-plt.imshow(
-    display_image,
-    cmap="gray"
+    return final_array
+
+correct = 0
+total = 10
+
+print("\nCUSTOM DIGIT TEST")
+print("-----------------------------")
+
+for actual_digit in range(10):
+
+    image_path = f"my_digits/digit{actual_digit}.png"
+
+    input_image = prepare_image(
+        image_path
+    )
+
+    if input_image is None:
+
+        print(
+            actual_digit,
+            "-> No digit detected"
+        )
+
+        continue
+
+    output = forward(
+        input_image
+    )
+
+    predicted_digit = np.argmax(
+        output
+    )
+
+    confidence = np.max(
+        output
+    ) * 100
+
+    if predicted_digit == actual_digit:
+
+        correct += 1
+        result = "Correct"
+
+    else:
+
+        result = "Wrong"
+
+    print(
+        "Actual:",
+        actual_digit,
+        "| Predicted:",
+        predicted_digit,
+        "| Confidence:",
+        round(confidence, 2),
+        "%",
+        "|",
+        result
+    )
+custom_accuracy = (
+    correct / total
+) * 100
+
+print(
+    "\nCustom Image Accuracy:",
+    round(custom_accuracy, 2),
+    "%"
 )
-
-plt.title(
-    f"Predicted Digit: {predicted_digit}"
-)
-
-plt.show()
